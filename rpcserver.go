@@ -1892,6 +1892,7 @@ func (r *rpcServer) GetNetworkInfo(context.Context, *lnrpc.NetworkInfoRequest) (
 	graph := r.server.chanDB.ChannelGraph()
 
 	var (
+		//graphDiameter        uint32
 		numNodes             uint32
 		numChannels          uint32
 		maxChanOut           uint32
@@ -1974,10 +1975,15 @@ func (r *rpcServer) GetNetworkInfo(context.Context, *lnrpc.NetworkInfoRequest) (
 	}
 
 	// TODO(roasbeef): graph diameter
+	graphDiameter, err := r.server.chanRouter.GetGraphDiameter(true)
+	if err != nil {
+		return nil, fmt.Errorf("unable get graph demeter")
+	}
 
 	// TODO(roasbeef): also add oldest channel?
 	//  * also add median channel size
 	netInfo := &lnrpc.NetworkInfo{
+		GraphDiameter:        uint32(graphDiameter),
 		MaxOutDegree:         maxChanOut,
 		AvgOutDegree:         float64(numChannels) / float64(numNodes),
 		NumNodes:             numNodes,

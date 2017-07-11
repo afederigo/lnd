@@ -63,6 +63,9 @@ type ChannelGraphSource interface {
 	// graph.
 	ForEachChannel(func(chanInfo *channeldb.ChannelEdgeInfo,
 		e1, e2 *channeldb.ChannelEdgePolicy) error) error
+
+	// GetGraphDiameter returns current graph diameter
+	GetGraphDiameter(bool) (uint16, error)
 }
 
 // FeeSchema is the set fee configuration for a Lighting Node on the network.
@@ -168,6 +171,11 @@ type ChannelRouter struct {
 	// TODO(roasbeef): make LRU
 	routeCacheMtx sync.RWMutex
 	routeCache    map[routeTuple][]*Route
+
+	// diamCache is an integer that tracks the longest distance between
+	// two nodes in the channel graph.
+	diamCacheMtx sync.RWMutex
+	diamCache    uint16
 
 	// newBlocks is a channel in which new blocks connected to the end of
 	// the main chain are sent over.
@@ -1143,4 +1151,56 @@ func (r *ChannelRouter) AddProof(chanID lnwire.ShortChannelID,
 
 	info.AuthProof = proof
 	return r.cfg.Graph.UpdateChannelEdge(info)
+}
+
+//
+//
+//
+// NOTE: This method is part of the ChannelGraphSource interface.
+func (r *ChannelRouter) GetGraphDiameter(compute bool) (uint16, error) {
+	// local variable to represent the graph diameter
+	var diam uint16
+	// If Cache is non-empty, then return Cached value
+	if !compute || r.diamCache != 0 {
+		// Acquire Mutex to read Cached value
+		r.diamCacheMtx.Lock()
+		diam = r.diamCache
+		r.diamCacheMtx.Unlock()
+		return diam, nil
+	}
+	// x,y used to pass to findPath
+	x := make(map[vertex]struct{})
+	y := make(map[uint64]struct{})
+
+	if err := r.cfg.Graph.ForEachNode(nil, func(tx *bolt.Tx, src *channeldb.LightningNode) error {
+		var diamPath []*ChannelHop
+		if err := r.cfg.Graph.ForEachNode(tx, func(_ *bolt.Tx, dest *channeldb.LightningNode) error {
+			// Distance between two identical nodes irrelevant
+			if src == dest {
+				return nil
+			}
+			// Determine the shortest Path between src and dest
+			diamPath, _ = findPath(r.cfg.Graph, src, dest.PubKey, x, y, 1)
+			// Update if path from src to dest is longer diam
+			if uint16(len(diamPath)) > diam {
+				diam = uint16(len(diamPath))
+			}
+
+			return nil
+
+		}); err != nil {
+			return err
+		}
+		return nil
+
+	}); err != nil {
+		return 0, err
+	}
+
+	// Acquire Mutex and write diam to Cache
+	r.diamCacheMtx.Lock()
+	r.diamCache = diam
+	r.diamCacheMtx.Unlock()
+
+	return diam, nil
 }
