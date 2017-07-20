@@ -12,8 +12,8 @@ ENV GODEBUG netdns=cgo
 # Install glide to manage vendor.
 RUN go get -u github.com/Masterminds/glide
 
-# Grab and install the latest version of lnd and all related dependencies.
-RUN git clone https://github.com/lightningnetwork/lnd $GOPATH/src/github.com/lightningnetwork/lnd
+# Grab and install the latest version of MY BRANCH WITH CUSTOM DOCKER lnd and all related dependencies.
+RUN git clone https://github.com/afederigo/lnd -b custom-docker --single-branch $GOPATH/src/github.com/lightningnetwork/lnd
 
 # Make lnd folder default.
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd

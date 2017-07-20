@@ -10,7 +10,7 @@ services:
         context: btcd/
       volumes:
             - shared:/rpc
-            - bitcoin:/data
+            - /home/federigo/.btcd/data_docker:/data
       environment:
         - RPCUSER
         - RPCPASS
@@ -97,8 +97,8 @@ volumes:
 
   # bitcoin volume is needed for maintaining blockchain persistance
   # during btcd container recreation.
-  bitcoin:
-    driver: local
+#  bitcoin:
+#    driver: local
 
   # litecoin volume is needed for maintaining blockchain persistance
   # during ltcd container recreation.
